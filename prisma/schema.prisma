@@ -1,0 +1,219 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// USER MANAGEMENT
+// ============================================
+
+model User {
+  id         String   @id @default(cuid())
+  email      String   @unique
+  password   String
+  name       String
+  avatar     String?
+  role       String   // MANAGER, SUPERVISOR, INSTALLER
+  permission String   // ADMIN, SUPERVISOR, EDITOR
+  active     Boolean  @default(true)
+  createdAt  Int      // timestamp in ms
+  updatedAt  Int      // timestamp in ms
+
+  @@map("users")
+}
+
+// ============================================
+// WORK ORDERS
+// ============================================
+
+model WorkOrder {
+  id              String   @id @default(cuid())
+  osNumber        String   @unique
+  type            String   // INSTALACAO, MANUTENCAO, TREINAMENTO
+  status          String   @default("PENDING") // PENDING, IN_PROGRESS, COMPLETED, BLOCKED, CANCELLED, REOPENED
+
+  // Client Info
+  client          String
+  clientName      String?
+  clientPhone     String?
+  clientEmail     String?
+
+  // Address
+  address         String
+  zipCode         String?
+  state           String?
+  city            String?
+  addressLine1    String?
+  district        String?
+
+  // Service Details
+  description     String?
+  date            String   // YYYY-MM-DD format
+  requiresEPI     Boolean  @default(true)
+
+  // Product Details
+  pixelPitch      String?
+  width           Float?
+  height          Float?
+  moduleType      String?  // MODULO, GABINETE
+  moduleQuantity  Int?
+  processorBrand  String?
+  processorModel  String?
+  processorQty    Int?
+
+  // Maintenance specific fields
+  maintenanceSubtype  String?  // PREVENTIVA, CORRETIVA
+  warrantyStatus      String?  // IN_WARRANTY, OUT_OF_WARRANTY
+  interventionType    String?  // RMA, PART_REPLACEMENT
+  partsReplaced       String?  // JSON array of parts
+  maintenanceNotes    String?
+
+  // Training specific fields
+  trainingSummary     String?
+  trainingEvidence    String?  // JSON array of evidence URLs
+
+  // Budget
+  expenseBudget   Float    @default(0)
+
+  // Time tracking
+  totalTime       Int      @default(0)  // in seconds
+  startedAt       Int?     // timestamp
+  completedAt     Int?     // timestamp
+
+  // Checklist (JSON stored as String for SQLite)
+  checklist       String?  // JSON
+
+  // Assignment
+  assignedToUserId   String
+  assignedToName     String
+  assignedToEmail    String?
+  createdById        String?
+  createdByName      String?
+
+  // Timestamps
+  createdAt       Int      // timestamp in ms
+  updatedAt       Int      // timestamp in ms
+
+  @@index([status])
+  @@index([date])
+  @@index([assignedToUserId])
+  @@map("work_orders")
+}
+
+// ============================================
+// VEHICLES / FLEET
+// ============================================
+
+model Vehicle {
+  id                      String   @id @default(cuid())
+  model                   String
+  plate                   String   @unique
+  status                  String   @default("AVAILABLE") // AVAILABLE, IN_USE, MAINTENANCE
+  lastOdometer            Int      @default(0)
+  nextMaintenanceOdometer Int?
+  notes                   String?
+  currentDriverId         String?
+  currentDriverName       String?
+  createdAt               Int
+  updatedAt               Int
+
+  @@map("vehicles")
+}
+
+model VehicleCheck {
+  id              String   @id @default(cuid())
+  vehicleId       String
+  type            String   // CHECK_OUT, CHECK_IN, MAINTENANCE
+  userId          String
+  userName        String
+  odometer        Int
+  fuelLevel       Int      // percentage
+  destination     String?
+  reason          String?
+  cost            Float?
+  provider        String?
+  photos          String?  // JSON array of URLs
+  checklist       String?  // JSON
+  checklistSigned Boolean  @default(false)
+  timestamp       Int
+
+  @@index([vehicleId])
+  @@map("vehicle_checks")
+}
+
+// ============================================
+// EXPENSES
+// ============================================
+
+model ExpenseGroup {
+  id                  String   @id @default(cuid())
+  workOrderId         String   @unique
+  workOrderNumber     String
+  technicianId        String
+  technicianName      String
+  budget              Float    @default(0)
+  totalAmount         Float    @default(0)
+  status              String   @default("DRAFT") // DRAFT, PENDING, APPROVED, PENDING_FINAL, FINAL_APPROVED, REJECTED
+
+  // Approval info
+  approvedById        String?
+  approvedByName      String?
+  approvedAt          Int?
+  justification       String?  // For expenses above budget
+
+  // Final approval (Admin only)
+  finalApprovedById   String?
+  finalApprovedByName String?
+  finalApprovedAt     Int?
+
+  // Rejection info
+  rejectedById        String?
+  rejectedByName      String?
+  rejectedAt          Int?
+  rejectionReason     String?
+
+  // Timestamps
+  completedAt         Int      // When the OS was completed
+  createdAt           Int
+  updatedAt           Int
+
+  @@index([status])
+  @@index([technicianId])
+  @@map("expense_groups")
+}
+
+model Expense {
+  id                  String   @id @default(cuid())
+  expenseGroupId      String
+  type                String   // ALIMENTACAO, HOSPEDAGEM, GASOLINA, TRANSPORTE, OUTROS
+  customType          String?
+  description         String
+  amount              Float
+  receiptPhoto        String?
+  date                Int
+  createdById         String
+  createdByName       String
+
+  @@index([expenseGroupId])
+  @@map("expenses")
+}
+
+// ============================================
+// SETTINGS
+// ============================================
+
+model Setting {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String   // JSON
+  updatedAt Int
+
+  @@map("settings")
+}
